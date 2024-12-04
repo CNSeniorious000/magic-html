@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import logging
 
+from tqdm import tqdm
+
 logging.basicConfig(level=logging.INFO)
 
 import json
@@ -61,7 +63,7 @@ def evaluate_result(datas, name=""):
     current_scores = {}
     down_num = 0
     up_dum = 0
-    for x in datas:
+    for x in tqdm(datas, name):
         scores.append(rouge_eval(x["content"], x["extract_content"]))
     for idx, item in enumerate(scores):
         prec.append(item["prec"])
@@ -124,7 +126,7 @@ def run_magic_html(name):
 
     datas = deepcopy(global_datas)
     extractor = GeneralExtractor()
-    for x in datas:
+    for x in tqdm(datas, name):
         x["extract_content"] = get_content_text(
             extractor.extract(html=x["html"], base_url=x["url"])["html"]
         )
@@ -136,7 +138,7 @@ def run_trafilatura(name):
     from trafilatura import extract
 
     datas = deepcopy(global_datas)
-    for x in datas:
+    for x in tqdm(datas, name):
         x["extract_content"] = extract(
             x["html"], include_comments=False, no_fallback=True
         )
@@ -148,20 +150,10 @@ def run_trafilatura_fallback(name):
     from trafilatura import extract
 
     datas = deepcopy(global_datas)
-    for x in datas:
+    for x in tqdm(datas, name):
         x["extract_content"] = extract(
             x["html"], include_comments=False, no_fallback=False
         )
-    global_info["func"].append(name)
-    evaluate_result(datas)
-
-
-def run_readability_lxml(name):
-    from readability import Document
-
-    datas = deepcopy(global_datas)
-    for x in datas:
-        x["extract_content"] = get_content_text(Document(x["html"]).summary())
     global_info["func"].append(name)
     evaluate_result(datas)
 
@@ -170,7 +162,7 @@ def run_newspaper3k(name):
     from newspaper import fulltext
 
     datas = deepcopy(global_datas)
-    for x in datas:
+    for x in tqdm(datas, name):
         try:
             x["extract_content"] = fulltext(x["html"])
         except:
@@ -184,7 +176,7 @@ def run_goose3(name):
 
     g = Goose()
     datas = deepcopy(global_datas)
-    for x in datas:
+    for x in tqdm(datas, name):
         try:
             x["extract_content"] = g.extract(raw_html=x["html"]).cleaned_text
         except:
@@ -197,7 +189,7 @@ def run_justext(name):
     import justext
 
     datas = deepcopy(global_datas)
-    for x in datas:
+    for x in tqdm(datas, name):
         paragraphs = justext.justext(x["html"], justext.get_stoplist("German"), 50, 200, 0.1, 0.2, 0.2, 200,
                                      True)  # stop_words
         valid = [
@@ -216,8 +208,21 @@ def run_gne(name):
 
     extractor = GeneralNewsExtractor()
     datas = deepcopy(global_datas)
-    for x in datas:
+    for x in tqdm(datas, name):
         x["extract_content"] = extractor.extract(x["html"])["content"]
+    global_info["func"].append(name)
+    evaluate_result(datas)
+
+
+def run_python_readability(name):
+    from readability import parse
+
+    datas = deepcopy(global_datas)
+
+    for x in tqdm(datas, name):
+        result = parse(x["html"])
+        x["extract_content"] = (result.title or result.excerpt or "") + "\n\n" + (result.text_content or "")
+
     global_info["func"].append(name)
     evaluate_result(datas)
 
@@ -232,10 +237,10 @@ except:
 
 # 自定义需要对比的方法
 all_funcs = {
+    "python-readability": run_python_readability,
     "magic_html": run_magic_html,
     "trafilatura": run_trafilatura,
     "trafilatura_fallback": run_trafilatura_fallback,
-    "readability-lxml": run_readability_lxml,
     "newspaper3k": run_newspaper3k,
     "goose3": run_goose3,
     "justext": run_justext,
@@ -254,13 +259,13 @@ print(
 ╒══════════════════════╤═════════════╤════════════╤═══════════╕
 │ func                 │   prec_mean │   rec_mean │   f1_mean │
 ╞══════════════════════╪═════════════╪════════════╪═══════════╡
-│ magic_html           │    0.908865 │   0.95032  │  0.92913  │
+│ python-readability   │    0.792697 │   0.929565 │  0.855693 │
 ├──────────────────────┼─────────────┼────────────┼───────────┤
-│ trafilatura          │    0.833434 │   0.912384 │  0.871124 │
+│ magic_html           │    0.908834 │   0.950374 │  0.92914  │
 ├──────────────────────┼─────────────┼────────────┼───────────┤
-│ trafilatura_fallback │    0.831229 │   0.933713 │  0.879496 │
+│ trafilatura          │    0.841572 │   0.920477 │  0.879258 │
 ├──────────────────────┼─────────────┼────────────┼───────────┤
-│ readability-lxml     │    0.86587  │   0.861391 │  0.863625 │
+│ trafilatura_fallback │    0.838855 │   0.941701 │  0.887307 │
 ├──────────────────────┼─────────────┼────────────┼───────────┤
 │ newspaper3k          │    0.409585 │   0.372083 │  0.389935 │
 ├──────────────────────┼─────────────┼────────────┼───────────┤

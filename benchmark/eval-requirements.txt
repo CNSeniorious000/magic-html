@@ -1,3 +1,4 @@
+tqdm
 beautifulsoup4
 jieba
 ltp
@@ -5,7 +6,7 @@ numpy
 rouge_score
 tabulate
 trafilatura
-readability-lxml
+python-readability
 newspaper3k
 goose3
 justext
